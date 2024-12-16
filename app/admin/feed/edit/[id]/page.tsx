@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from '@/lib/supabase';
+import Image from 'next/image';
 
 interface FeedItem {
   id: string;
@@ -146,10 +147,12 @@ const EditFeedPage = ({ params }: { params: { id: string } }) => {
             onClick={() => document.getElementById("imageInput")?.click()}
           >
             {feed.image_url ? (
-              <img
+              <Image
                 src={feed.image_url}
                 alt="Preview"
                 className="w-full h-full object-cover"
+                width={feedSizes[feed.type].width}
+                height={feedSizes[feed.type].height}
               />
             ) : (
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
