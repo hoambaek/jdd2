@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/utils/supabase';
 
 export default function SignUp() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
+    email: "",
     baptismal: "",
     userType: "",
     password: "",
@@ -16,28 +18,70 @@ export default function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 5) {
+    if (step < 6) {
       setStep(step + 1);
-    } else {
-      try {
-        const response = await fetch('/api/signup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
+      return;
+    }
+
+    try {
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error('비밀번호가 일치하지 않습니다.');
+      }
+
+      // 1. 회원가입
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            baptismal_name: formData.baptismal,
+            user_type: formData.userType
+          }
+        }
+      });
+
+      if (authError) {
+        throw new Error(`인증 오류: ${authError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error('사용자 데이터를 받지 못했습니다.');
+      }
+
+      // 2. 프로필 정보 저장
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email: formData.email,
+          name: formData.name,
+          baptismal_name: formData.baptismal,
+          user_type: formData.userType
         });
 
-        if (!response.ok) {
-          throw new Error('회원가입에 실패했습니다.');
-        }
+      if (profileError) {
+        throw new Error(`프로필 저장 오류: ${profileError.message}`);
+      }
 
-        const data = await response.json();
-        // 회원가입 성공 후 처리 (예: 로그인 페이지로 이동)
-        router.push('/login');
-      } catch (error) {
-        console.error('회원가입 오류:', error);
-        // 에러 처리
+      // 3. 자동 로그인
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signInError) {
+        throw new Error(`로그인 오류: ${signInError.message}`);
+      }
+
+      router.push('/signup/complete');
+
+    } catch (error) {
+      console.error('회원가입 오류:', error);
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert('알 수 없는 오류가 발생했습니다.');
       }
     }
   };
@@ -61,6 +105,24 @@ export default function SignUp() {
       case 1:
         return (
           <div>
+            <h2 className="text-xl mb-4">이메일을 입력해주세요</h2>
+            <div>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full p-2 border rounded-lg"
+                required
+              />
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div>
             <h2 className="text-xl mb-4">이름을 입력해주세요</h2>
             <div>
               <input
@@ -76,7 +138,7 @@ export default function SignUp() {
           </div>
         );
 
-      case 2:
+      case 3:
         return (
           <div>
             <h2 className="text-xl mb-4">세례명을 입력해주세요</h2>
@@ -94,7 +156,7 @@ export default function SignUp() {
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div>
             <h2 className="text-xl mb-4">Step 3: 당신은 누구신가요?</h2>
@@ -119,7 +181,7 @@ export default function SignUp() {
           </div>
         );
 
-      case 4:
+      case 5:
         return (
           <div>
             <h2 className="text-xl mb-4">비밀번호를 입력해주세요</h2>
@@ -137,7 +199,7 @@ export default function SignUp() {
           </div>
         );
 
-      case 5:
+      case 6:
         return (
           <div>
             <h2 className="text-xl mb-4">비밀번호를 한번 더 입력해주세요</h2>
@@ -170,11 +232,11 @@ export default function SignUp() {
             {/* 진행 바 */}
             <div 
               className="absolute top-1/2 left-0 h-1 bg-lime-500 transition-all duration-300 -z-5"
-              style={{ width: `${((step - 1) / 4) * 100}%` }}
+              style={{ width: `${((step - 1) / 5) * 100}%` }}
             ></div>
 
             {/* 단계 원형 표시 */}
-            {[1, 2, 3, 4, 5].map((num) => (
+            {[1, 2, 3, 4, 5, 6].map((num) => (
               <div
                 key={num}
                 className={`w-8 h-8 rounded-full flex items-center justify-center
@@ -204,7 +266,7 @@ export default function SignUp() {
               type="submit"
               className="w-full bg-lime-500 text-white py-2 rounded-lg hover:bg-lime-600 transition-colors"
             >
-              {step < 5 ? "다음" : "가입하기"}
+              {step < 6 ? "다음" : "가입하기"}
             </button>
           </div>
         </form>

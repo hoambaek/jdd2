@@ -23,7 +23,7 @@ export default function Home() {
             height={146}
             priority
           />
-          <h1 className="text-xl font-small text-white text-center">
+          <h1 className="text-base font-small text-white text-center">
             장덕동성당 중고등부 앱
           </h1>
         </div>
